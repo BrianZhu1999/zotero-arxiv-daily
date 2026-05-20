@@ -57,9 +57,9 @@ def get_arxiv_paper(query:str, debug:bool=False) -> list[ArxivPaper]:
         all_paper_ids = [i.id.removeprefix("oai:arXiv.org:") for i in feed.entries if i.arxiv_announce_type == 'new']
         bar = tqdm(total=len(all_paper_ids),desc="Retrieving Arxiv papers")
         
-        batch_size = 25
-        batch_pause_seconds = 4
-        max_batch_attempts = 5
+        batch_size = 5
+        batch_pause_seconds = 60
+        max_batch_attempts = 8
         for i in range(0, len(all_paper_ids), batch_size):
             if i > 0:
                 time.sleep(batch_pause_seconds)
