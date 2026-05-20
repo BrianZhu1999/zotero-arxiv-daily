@@ -2,6 +2,7 @@ import arxiv
 import argparse
 import os
 import sys
+import time
 from dotenv import load_dotenv
 load_dotenv(override=True)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -55,9 +56,31 @@ def get_arxiv_paper(query:str, debug:bool=False) -> list[ArxivPaper]:
         papers = []
         all_paper_ids = [i.id.removeprefix("oai:arXiv.org:") for i in feed.entries if i.arxiv_announce_type == 'new']
         bar = tqdm(total=len(all_paper_ids),desc="Retrieving Arxiv papers")
-        for i in range(0,len(all_paper_ids),50):
-            search = arxiv.Search(id_list=all_paper_ids[i:i+50])
-            batch = [ArxivPaper(p) for p in client.results(search)]
+        
+        batch_size = 25
+        batch_pause_seconds = 4
+        max_batch_attempts = 5
+        for i in range(0, len(all_paper_ids), batch_size):
+            if i > 0:
+                time.sleep(batch_pause_seconds)
+
+            paper_ids = all_paper_ids[i:i + batch_size]
+
+            for attempt in range(max_batch_attempts):
+                try:
+                    search = arxiv.Search(id_list=paper_ids)
+                    batch = [ArxivPaper(p) for p in client.results(search)]
+                    break
+                except Exception as e:
+                    if attempt == max_batch_attempts - 1:
+                        raise
+                    wait_seconds = batch_pause_seconds * (2 ** attempt)
+                    logger.warning(
+                        f"Failed to retrieve arXiv batch {i // batch_size + 1}. "
+                        f"Retrying in {wait_seconds}s. Error: {e}"
+                    )
+                    time.sleep(wait_seconds)
+
             bar.update(len(batch))
             papers.extend(batch)
         bar.close()
